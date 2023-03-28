@@ -47,11 +47,13 @@ namespace SDDM {
         QSettings settings(path, QSettings::IniFormat);
         QSettings userSettings(path + QStringLiteral(".user"), QSettings::IniFormat);
 
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
         // Support non-latin strings in background picture path
         // Warning: The codec must be set immediately after creating the QSettings object,
         // before accessing any data.
         settings.setIniCodec("UTF-8");
         userSettings.setIniCodec("UTF-8");
+#endif
 
         // read default keys
         for (const QString &key: settings.allKeys()) {
