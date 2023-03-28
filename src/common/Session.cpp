@@ -217,7 +217,7 @@ namespace SDDM {
     {
         QProcessEnvironment env;
 
-        const QVector<QStringRef> entryList = list.splitRef(QLatin1Char(','), Qt::SkipEmptyParts);
+        const auto entryList = QStringView(list).split(QLatin1Char(','), Qt::SkipEmptyParts);
         for (const auto &entry: entryList) {
             int midPoint = entry.indexOf(QLatin1Char('='));
             if (midPoint < 0) {
