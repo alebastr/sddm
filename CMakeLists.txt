@@ -84,11 +84,16 @@ find_package(XCB REQUIRED)
 # XKB
 find_package(XKB REQUIRED)
 
-# Qt 5
-find_package(Qt5 5.15.0 CONFIG REQUIRED Core DBus Gui Qml Quick LinguistTools Test QuickTest)
+# Qt (5 or 6)
+set(DESIRED_QT_VERSION 5 CACHE STRING "Target version of Qt (5 or 6)")
+set(DESIRED_QT_VERSION_MIN ${DESIRED_QT_VERSION})
+if(${DESIRED_QT_VERSION} EQUAL 5)
+    set(DESIRED_QT_VERSION_MIN 5.15.0)
+endif()
+find_package(Qt${DESIRED_QT_VERSION} ${DESIRED_QT_VERSION_MIN} CONFIG REQUIRED Core DBus Gui Qml Quick LinguistTools Test QuickTest)
 
-# find qt5 imports dir
-get_target_property(QMAKE_EXECUTABLE Qt5::qmake LOCATION)
+# find Qt imports dir
+get_target_property(QMAKE_EXECUTABLE Qt::qmake LOCATION)
 if(NOT QT_IMPORTS_DIR)
     exec_program(${QMAKE_EXECUTABLE} ARGS "-query QT_INSTALL_QML" RETURN_VALUE return_code OUTPUT_VARIABLE QT_IMPORTS_DIR)
 endif()
