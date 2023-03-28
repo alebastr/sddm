@@ -47,6 +47,11 @@ namespace SDDM {
         : QProcess(parent)
     {
         connect(this, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, &UserSession::finished);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+        setChildProcessModifier([this] {
+            setupChild();
+        });
+#endif
     }
 
     bool UserSession::start() {
@@ -175,7 +180,13 @@ namespace SDDM {
         return m_path;
     }
 
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     void UserSession::setupChildProcess() {
+        setupChild();
+    }
+#endif
+
+    void UserSession::setupChild() {
         // Session type
         QString sessionType = processEnvironment().value(QStringLiteral("XDG_SESSION_TYPE"));
         QString sessionClass = processEnvironment().value(QStringLiteral("XDG_SESSION_CLASS"));
@@ -208,7 +219,7 @@ namespace SDDM {
             if (setsid() < 0) {
                 qCritical("Failed to set pid %lld as leader of the new session and process group: %s",
                           QCoreApplication::applicationPid(), strerror(errno));
-                exit(Auth::HELPER_OTHER_ERROR);
+                _exit(Auth::HELPER_OTHER_ERROR);
             }
 
             // take control of the tty
@@ -216,7 +227,7 @@ namespace SDDM {
                 if (ioctl(STDIN_FILENO, TIOCSCTTY) < 0) {
                     const auto error = strerror(errno);
                     qCritical().nospace() << "Failed to take control of " << ttyString << " (" << QFileInfo(ttyString).owner() << "): " << error;
-                    exit(Auth::HELPER_TTY_ERROR);
+                    _exit(Auth::HELPER_TTY_ERROR);
                 }
             }
 
@@ -230,11 +241,11 @@ namespace SDDM {
             int fd = ::open(qPrintable(ns), O_RDONLY);
             if (fd < 0) {
                 qCritical("open(%s) failed: %s", qPrintable(ns), strerror(errno));
-                exit(Auth::HELPER_OTHER_ERROR);
+                _exit(Auth::HELPER_OTHER_ERROR);
             }
             if (setns(fd, 0) != 0) {
                 qCritical("setns(open(%s), 0) failed: %s", qPrintable(ns), strerror(errno));
-                exit(Auth::HELPER_OTHER_ERROR);
+                _exit(Auth::HELPER_OTHER_ERROR);
             }
             ::close(fd);
         }
@@ -250,7 +261,7 @@ namespace SDDM {
         QScopedPointer<char, QScopedPointerPodDeleter> buffer(static_cast<char*>(malloc(bufsize)));
         if (buffer.isNull()) {
             qCritical() << "Could not allocate buffer of size" << bufsize;
-            exit(Auth::HELPER_OTHER_ERROR);
+            _exit(Auth::HELPER_OTHER_ERROR);
         }
         int err = getpwnam_r(username.constData(), &pw, buffer.data(), bufsize, &rpw);
         if (rpw == NULL) {
@@ -258,13 +269,13 @@ namespace SDDM {
                 qCritical() << "getpwnam_r(" << username << ") username not found!";
             else
                 qCritical() << "getpwnam_r(" << username << ") failed with error: " << strerror(err);
-            exit(Auth::HELPER_OTHER_ERROR);
+            _exit(Auth::HELPER_OTHER_ERROR);
         }
 
         const int xauthHandle = m_xauthFile.handle();
         if (xauthHandle != -1 && fchown(xauthHandle, pw.pw_uid, pw.pw_gid) != 0) {
             qCritical() << "fchown failed for" << m_xauthFile.fileName();
-            exit(Auth::HELPER_OTHER_ERROR);
+            _exit(Auth::HELPER_OTHER_ERROR);
         }
 
 #if defined(Q_OS_FREEBSD)
@@ -272,12 +283,12 @@ namespace SDDM {
         // therefore environment variables which are set here are ignored.
         if (setusercontext(NULL, &pw, pw.pw_uid, LOGIN_SETALL) != 0) {
             qCritical() << "setusercontext(NULL, *, " << pw.pw_uid << ", LOGIN_SETALL) failed for user: " << username;
-            exit(Auth::HELPER_OTHER_ERROR);
+            _exit(Auth::HELPER_OTHER_ERROR);
         }
 #else
         if (setgid(pw.pw_gid) != 0) {
             qCritical() << "setgid(" << pw.pw_gid << ") failed for user: " << username;
-            exit(Auth::HELPER_OTHER_ERROR);
+            _exit(Auth::HELPER_OTHER_ERROR);
         }
 
         // fetch ambient groups from PAM's environment;
@@ -289,7 +300,7 @@ namespace SDDM {
             if ((n_pam_groups = getgroups(n_pam_groups, pam_groups)) == -1) {
                 qCritical() << "getgroups() failed to fetch supplemental"
                             << "PAM groups for user:" << username;
-                exit(Auth::HELPER_OTHER_ERROR);
+                _exit(Auth::HELPER_OTHER_ERROR);
             }
         } else {
             n_pam_groups = 0;
@@ -306,7 +317,7 @@ namespace SDDM {
                                               &n_user_groups)) == -1 ) {
                 qCritical() << "getgrouplist(" << pw.pw_name << ", " << pw.pw_gid
                             << ") failed";
-                exit(Auth::HELPER_OTHER_ERROR);
+                _exit(Auth::HELPER_OTHER_ERROR);
             }
         }
 
@@ -322,7 +333,7 @@ namespace SDDM {
             // setgroups(2) handles duplicate groups
             if (setgroups(n_groups, groups) != 0) {
                 qCritical() << "setgroups() failed for user: " << username;
-                exit (Auth::HELPER_OTHER_ERROR);
+                _exit (Auth::HELPER_OTHER_ERROR);
             }
             delete[] groups;
         }
@@ -331,13 +342,13 @@ namespace SDDM {
 
         if (setuid(pw.pw_uid) != 0) {
             qCritical() << "setuid(" << pw.pw_uid << ") failed for user: " << username;
-            exit(Auth::HELPER_OTHER_ERROR);
+            _exit(Auth::HELPER_OTHER_ERROR);
         }
 #endif /* Q_OS_FREEBSD */
         if (chdir(pw.pw_dir) != 0) {
             qCritical() << "chdir(" << pw.pw_dir << ") failed for user: " << username;
             qCritical() << "verify directory exist and has sufficient permissions";
-            exit(Auth::HELPER_OTHER_ERROR);
+            _exit(Auth::HELPER_OTHER_ERROR);
         }
 
         if (sessionClass != QLatin1String("greeter")) {

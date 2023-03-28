@@ -55,12 +55,13 @@ namespace SDDM {
     Q_SIGNALS:
         void finished(int exitCode);
 
-
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     protected:
         void setupChildProcess() override;
+#endif
 
     private:
-        void setup();
+        void setupChild();
 
         QString m_path { };
         QTemporaryFile m_xauthFile;
