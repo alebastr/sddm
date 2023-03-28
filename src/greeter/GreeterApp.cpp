@@ -328,6 +328,8 @@ int main(int argc, char **argv)
         qInstallMessageHandler(SDDM::GreeterMessageHandler);
 
     // HiDPI
+    // Qt6: High-DPI scaling is always enabled.
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     bool hiDpiEnabled = false;
     if (platform == QStringLiteral("xcb"))
         hiDpiEnabled = SDDM::mainConfig.X11.EnableHiDPI.get();
@@ -339,6 +341,7 @@ int main(int argc, char **argv)
     } else {
         qDebug() << "High-DPI autoscaling not Enabled";
     }
+#endif
 
     if (QLibraryInfo::version() >= QVersionNumber(5, 13, 0)) {
         auto format(QSurfaceFormat::defaultFormat());
